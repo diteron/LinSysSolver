@@ -132,7 +132,14 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gui.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="solve.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="crsproj.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="ico\lss.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

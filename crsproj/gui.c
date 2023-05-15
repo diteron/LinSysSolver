@@ -5,28 +5,28 @@ processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 
 #include "gui.h"
 #include "solve.h"
+#include "resource.h"
 
-#define EC_TEXTLEN	17		// Максимальный размер числа в Edit Control (включая '-' и '.')
-#define START_X_POS	10
-#define START_Y_POS	70
+
+HWND mainWindow;
 
 HWND** coeffEditCtrls;		// Матрица коэффициентов
 HWND coeffEditCtrlsText;
 
-HWND* constEditCtrls;			// Столбец свободных членов
-HWND constEditCtrlsText;	
+HWND* constEditCtrls;		// Столбец свободных членов		
+HWND constEditCtrlsText;
 
+HWND* solutionEditCtrls;	// Столбец решения системы
 HWND solveButton;
 HWND solutionText;
-HWND* solutionEditCtrls = NULL;	// Столбец решения системы
 
-HWND variablesNumDropdown;	
-int currentDropdownElem = -1;
+HWND variablesNumDropdown;	// Дропдаун для выбора числа переменных
+HWND precUpDwnEdtCtrl;		// Edit control для выбора числа знаков после запятой
 
-HFONT font;
+HFONT font;					// Системный шрифт
 
 int variablesNum = 0;
-static WNDPROC OriginalEditProc = NULL;
+
 
 int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR pCmdLine, _In_ int nCmdShow) {
 	// Регистрация класса window
@@ -36,83 +36,90 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 	window.lpfnWndProc = (WNDPROC)mainWinProc;
 	window.hbrBackground = (HBRUSH)(COLOR_WINDOW);
 	window.hCursor = LoadCursor(NULL, IDC_ARROW);
+	window.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_ICON1));
 	RegisterClass(&window);
 
 	// Создание и вывод главного окна
-	HWND mainWindow = CreateWindowEx(
-		0, L"main window", L"LinSysSolver", 
+	mainWindow = CreateWindowEx(
+		0, L"main window", L"LinSysSolver",
 		WS_OVERLAPPEDWINDOW,
-		10, 10, 940, 680,
+		10, 10, MWND_WIDTH, MWND_HEIGHT,
 		NULL, NULL, hInstance, NULL);
 	ShowWindow(mainWindow, SW_SHOWNORMAL);
 
-	// Проверка загрузки библиотеки Comctl32.dll
-	comctl32Check();
-	// Получение системного шрифта
-	getSysFont();
+	comctl32Check();	// Загрузка библиотеки Comctl32.dll
+	getSysFont();		// Получение системного шрифта
 
 	createVarsNumDropdown(mainWindow);
+	createPrecUpDownCtrl(mainWindow);
 
 	// Обработка сообщений окна программы
 	MSG message;
 	BOOL getMsgReturn = 0;
-	while (getMsgReturn = GetMessage(&message, NULL, 0, 0)) {	
-		if (getMsgReturn == -1) break;
+	while ((getMsgReturn = GetMessage(&message, NULL, 0, 0)) != 0) {
+		if (getMsgReturn == -1) {
+			break;
+		}
 
-		if (!IsDialogMessage(mainWindow, &message)) {
+		if (!IsDialogMessage(mainWindow, &message)) {	// Проверка для перехода на другой edit control по клавише TAB
 			TranslateMessage(&message);
 			DispatchMessage(&message);
 		}
 	}
 
+	//_CrtDumpMemoryLeaks();
 	return 0;
 }
 
 LRESULT CALLBACK mainWinProc(_In_ HWND hWnd, _In_ UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam) {
-	static BOOL solutionButtonPressed = FALSE;
-	
 	switch (uMsg) {
-		case WM_DESTROY:
+		case WM_DESTROY:												// Закрытие окна
 			if (coeffEditCtrls != NULL) {
 				deleteEditCtrls();
+				deleteAllFilledArrays(variablesNum - 1);
 			}
 			DeleteObject(font);
 			PostQuitMessage(0);
 			break;
 
 		case WM_COMMAND:
-			if ((HWND)lParam == solveButton) {
-				if (!solutionButtonPressed) {
-					setSolutionEditCtrlsVisible();
-					fillCoeffMatrix(coeffEditCtrls, variablesNum);
-					solutionButtonPressed = TRUE;
+			if ((HWND)lParam == solveButton) {							// Обработка нажатия на кнопку "Решить"
+				if (failedSolve()) {
+					return 0;
 				}
 			}
-			else if ((HWND)lParam == variablesNumDropdown) {
+			else if ((HWND)lParam == variablesNumDropdown) {			// Обработка выбора значения в дропдауне числа переменных 
 				if (HIWORD(wParam) == CBN_SELCHANGE) {
-					int dropdownElemId = (int)SendMessage((HWND)lParam, CB_GETCURSEL, 0, 0);
-					if (currentDropdownElem != dropdownElemId) {
-						currentDropdownElem = dropdownElemId;
-						if (coeffEditCtrls != NULL) {
-							deleteEditCtrls(TRUE);
-							solutionButtonPressed = FALSE;
-						}
-						variablesNum = dropdownElemId + 2;
-						if (!createCoeffEditCtrls(hWnd, variablesNum, START_X_POS, START_Y_POS)) return 0;
+					if (failedDropDwnChange((HWND)lParam, hWnd)) {
+						return 0;
 					}
 				}
 			}
 			break;
-	
-		case WM_GETMINMAXINFO: {
+
+		case WM_GETMINMAXINFO: {										// Установка минимального размера окна
 			LPMINMAXINFO lpMMI = (LPMINMAXINFO)lParam;
-			lpMMI->ptMinTrackSize.x = 940;
-			lpMMI->ptMinTrackSize.y = 680;
+			lpMMI->ptMinTrackSize.x = MWND_WIDTH;
+			lpMMI->ptMinTrackSize.y = MWND_HEIGHT;
 			break;
-		}		
+		}
 	}
 
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
+}
+
+void comctl32Check() {
+	INITCOMMONCONTROLSEX initControls;
+	initControls.dwSize = sizeof(INITCOMMONCONTROLSEX);
+	initControls.dwICC = ICC_ANIMATE_CLASS;
+	InitCommonControlsEx(&initControls);
+}
+
+void getSysFont() {
+	NONCLIENTMETRICS metrics;
+	metrics.cbSize = sizeof(NONCLIENTMETRICS);
+	SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &metrics, 0);
+	font = CreateFontIndirect(&metrics.lfMessageFont);
 }
 
 void createVarsNumDropdown(HWND parentWindow) {
@@ -122,7 +129,7 @@ void createVarsNumDropdown(HWND parentWindow) {
 		START_X_POS, 20, 170, 25,
 		parentWindow, NULL, NULL, NULL);
 	SendMessage(dropdownText, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
-	
+
 	variablesNumDropdown = CreateWindow(
 		L"combobox", L"",
 		WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST,
@@ -130,17 +137,92 @@ void createVarsNumDropdown(HWND parentWindow) {
 		parentWindow, NULL, NULL, NULL);
 	SendMessage(variablesNumDropdown, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
 
-	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"2");	// Создание элементов выпадающего списка
+	// Создание элементов выпадающего списка
+	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"2");
 	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"3");
 	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"4");
 	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"5");
 	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"6");
 	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"7");
+	SendMessage(variablesNumDropdown, CB_ADDSTRING, 0, (LPARAM)L"8");
 }
 
-BOOL createCoeffEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
+BOOL failedDropDwnChange(HWND drpDwnHwnd, HWND parentHwnd) {
+	static currentDropdownElem = UNSELECTED;
+	
+	int newDropdownElemId = (int)SendMessage(drpDwnHwnd, CB_GETCURSEL, 0, 0);
+	if (currentDropdownElem != newDropdownElemId) {		// Если выбран другой элемент в дропдауне 
+		currentDropdownElem = newDropdownElemId;
+		if (coeffEditCtrls != NULL) {					// И были созданы edit controls для ввода СЛАУ,
+			deleteEditCtrls();							// то удаляем их
+			deleteAllFilledArrays(variablesNum - 1);	// Удаление заполненных массивов при решении системы
+		}
+		variablesNum = newDropdownElemId + 2;
+		if (!createSystemEditCtrls(parentHwnd, variablesNum, START_X_POS, START_Y_POS)) {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+BOOL failedSolve() {
+	int precision = getPrecision();
+	if (precision >= 0 && precision <= MAX_PREC) {
+		if (solveSystem(coeffEditCtrls, constEditCtrls, solutionEditCtrls, variablesNum, precision)) {
+			setSolutionEditCtrlsVisible();
+			return FALSE;
+		}
+	}
+	else {
+		showWarningMsgBox((LPCWSTR)L"Число цифр после запятой\nдолжно быть в диапазоне от 0 до 14");
+	}
+
+	return TRUE;
+}
+
+int getPrecision() {
+	WCHAR precBuff[PREC_NUM_LEN + 1];
+	GetWindowText(precUpDwnEdtCtrl, precBuff, PREC_NUM_LEN + 1);
+	int precision = _wtoi(precBuff);
+
+	return precision;
+}
+
+void createPrecUpDownCtrl(HWND parentWindow) {
+	HWND updwnEdtCtrlText = CreateWindow(
+		L"static", L"Число знаков после запятой (0-14):",
+		WS_VISIBLE | WS_CHILD,
+		START_X_POS + 300, 20, 200, 25,
+		parentWindow, NULL, NULL, NULL);
+	SendMessage(updwnEdtCtrlText, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
+
+	precUpDwnEdtCtrl = CreateWindowEx(
+		WS_EX_CLIENTEDGE,
+		L"edit", L"3",
+		WS_VISIBLE | WS_CHILD | ES_RIGHT | ES_NUMBER,
+		START_X_POS + 500, 20, SYSTEM_EC_WIDTH, EC_HEIGHT,
+		parentWindow, NULL, NULL, NULL);
+	SendMessage(precUpDwnEdtCtrl, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
+	SendMessage(precUpDwnEdtCtrl, EM_SETLIMITTEXT, PREC_NUM_LEN, 0);
+
+	HWND updwnCtrl = CreateWindowEx(
+		WS_EX_LEFT | WS_EX_LTRREADING,
+		UPDOWN_CLASS,
+		NULL,
+		WS_CHILDWINDOW | WS_VISIBLE
+		| UDS_AUTOBUDDY | UDS_SETBUDDYINT | UDS_ALIGNRIGHT | UDS_ARROWKEYS | UDS_HOTTRACK,
+		0, 0, 0, 0,
+		parentWindow, NULL, NULL, NULL);
+	SendMessage(updwnCtrl, UDM_SETRANGE, 0, MAKELPARAM(MAX_PREC, 0));
+	SendMessage(updwnCtrl, UDM_SETPOS, 0, 3);
+}
+
+BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 	coeffEditCtrls = calloc(size, sizeof(HWND*));
-	if (coeffEditCtrls == NULL) return FALSE;
+	if (coeffEditCtrls == NULL) {
+		return FALSE;
+	}
 
 	coeffEditCtrlsText = CreateWindow(
 		L"static", L"Матрица коэффициентов:",
@@ -148,115 +230,129 @@ BOOL createCoeffEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 		xPos, yPos, 180, 20,
 		parentWindow, NULL, NULL, NULL);
 	SendMessage(coeffEditCtrlsText, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
-	yPos += 20;
 
-	WNDPROC oldProc;
-	int editCtrlsEnd_xPos = xPos;
+	yPos += YSPACE_AFT_ECTXT;			// Переход к позиции для создания первого edit control матрицы коэффициентов
+
 	for (int i = 0; i < size; ++i) {
 		coeffEditCtrls[i] = calloc(size, sizeof(HWND));
 		if (coeffEditCtrls[i] == NULL) {
-			for (i = i - 1; i >= 0; --i) {
-				free(coeffEditCtrls[i]);
-			}
+			freeEditCtlsMatrix(i - 1);
 			return FALSE;
 		}
 
+		xPos = START_X_POS;
 		for (int j = 0; j < size; ++j) {
 			coeffEditCtrls[i][j] = CreateWindowEx(
 				WS_EX_CLIENTEDGE,
 				L"edit", L"0",
 				WS_VISIBLE | WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL | WS_TABSTOP,
-				xPos, yPos, 80, 20,
+				xPos, yPos, SYSTEM_EC_WIDTH, EC_HEIGHT,
 				parentWindow, NULL, NULL, NULL);
-
-			oldProc = (WNDPROC)(SetWindowLongPtr(coeffEditCtrls[i][j], GWLP_WNDPROC, (LONG_PTR)(editCtrlProc)));
-			if (OriginalEditProc == NULL) {		// Запомнить старую процедуру обработки edit control
-				OriginalEditProc = oldProc;		// Она будет вызываться в конце функции editCtrlProc
-			}
-
-			SendMessage(coeffEditCtrls[i][j], EM_SETLIMITTEXT, EC_TEXTLEN, 0);
+			SetWindowSubclass(coeffEditCtrls[i][j], systemEditCtrlsProc, 0, 0);
+			SendMessage(coeffEditCtrls[i][j], EM_SETLIMITTEXT, MAX_NUM_LEN, 0);
 			SendMessage(coeffEditCtrls[i][j], WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
-			xPos += 85;
+			xPos += XSPACE_BTWN_EC;
 		}
-		editCtrlsEnd_xPos = xPos;
-		xPos = START_X_POS;
-		yPos += 25;
+
+		yPos += YSPACE_BTWN_EC;			// Переход вниз для создания следующей строки матрицы 
 	}
 
-	solveButton = CreateWindow(
-		L"button", L"Решить",
-		WS_VISIBLE | WS_CHILD,
-		START_X_POS, yPos + 10, 80, 30,
-		parentWindow, NULL, NULL, NULL);
-	SendMessage(solveButton, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
+	if (!createConstEditCtrls(parentWindow, size, xPos + 100, START_Y_POS)) {
+		freeEditCtlsMatrix(variablesNum - 1);
+		return FALSE;
+	}
 
-	if (!createConstEditCtrls(parentWindow, size, editCtrlsEnd_xPos + 100, START_Y_POS)) return FALSE;
-
-	if (!createSolutionEditCtrls(parentWindow, variablesNum, START_X_POS + 100, yPos + 10)) return FALSE;
+	if (!createSolutionEditCtrls(parentWindow, variablesNum, START_X_POS + 100, yPos + 10)) {
+		freeEditCtlsMatrix(variablesNum - 1);
+		free(constEditCtrls);
+		return FALSE;
+	}
 
 	return TRUE;
 }
 
-LRESULT CALLBACK editCtrlProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK systemEditCtrlsProc(
+	HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+	UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+
 	if (uMsg == WM_CHAR) {
-		if (wParam == '.') {
-			WCHAR buff[17] = L"";
-			GetWindowText(hWnd, buff, 17);
-			if (buff[0] == '\0') {	// Если поле пустое точку вводить нельзя
-				return 0;
-			}
-			for (int i = 0; i < 17; ++i) {	// Точка может быть только одна
-				if (buff[i] == '.') {
-					return 0;
-				}
-			}
+		if (wParam == '.' && incorrectDotPos(hWnd)) {
+			return 0;
 		}
-		else if (wParam == '-') {
-			DWORD from = 0, to = 0;
-			SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
-			if (from == 0) {  // Если текстовый курсор находится в начале (или текст выделяется с самого начала) минус вводить можно
-				if (to == 0) {
-					WCHAR buffer[2] = L"";
-					SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
-					if (buffer[0] == '-') { // Минус может быть только один
-						return 0;
-					}
-				}
-			}
-			else {
-				return 0;
-			}
+		else if (wParam == '-' && incorrectMinusPos(hWnd)) {
+			return 0;
 		}
 
-		if ((wParam >= '0' && wParam <= '9') || wParam == '.') {	// Запрет на ввод цифр и точки перед знаком '-'
-			DWORD from = 0, to = 0;
-			SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
-			if (from == 0) {
-				if (to == 0) {
-					WCHAR buffer[2] = L"";
-					SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
-					if (buffer[0] == '-') {
-						return 0;
-					}
-				}
-			}
+		if (сharBeforeMinus(hWnd, wParam)) {		
+			return 0;
 		}
 
-		if (!((wParam >= '0' && wParam <= '9')		// Запред ввода любых символов (или нажатия клавиш), кроме указанных
+		if (!((wParam >= '0' && wParam <= '9')		// Запрет ввода любых других символов (и нажатия клавиш), кроме указанных
 			|| wParam == '.'
 			|| wParam == '-'
 			|| wParam == VK_RETURN
-			|| wParam == VK_DELETE
 			|| wParam == VK_BACK)) {
 
 			return 0;
 		}
 	}
-	else if (uMsg == WM_CONTEXTMENU) {	// Запрет открытия контестного меню по клику ПКМ
+	else if (uMsg == WM_CONTEXTMENU) {				// Запрет открытия контекстного меню по клику ПКМ
 		return 0;
 	}
 
-	return CallWindowProc(OriginalEditProc, hWnd, uMsg, wParam, lParam);
+	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+}
+
+BOOL incorrectDotPos(HWND hWnd) {
+	WCHAR buff[MAX_NUM_LEN] = L"";
+	GetWindowText(hWnd, buff, MAX_NUM_LEN);
+
+	if (buff[0] == '\0') {						// Если поле пустое точку вводить нельзя
+		return TRUE;
+	}
+
+	for (int i = 0; i < MAX_NUM_LEN; ++i) {		// Точка может быть только одна
+		if (buff[i] == '.') {
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
+
+BOOL incorrectMinusPos(HWND hWnd) {
+	DWORD from = 0, to = 0;
+	SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
+	if (from == 0) {					// Если текстовый курсор находится в начале, минус вводить можно
+		if (to == 0) {
+			WCHAR buffer[ONECHAR_BUFF_SIZE] = L"";
+			SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
+			if (buffer[0] == '-') {		// Минус может быть только один
+				return TRUE;
+			}
+		}
+	}
+	else {
+		return TRUE;
+	}
+
+	return FALSE;
+}
+
+BOOL сharBeforeMinus(HWND hWnd, WPARAM wParam) {
+	DWORD from = 0, to = 0;
+	SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
+	if (from == 0) {					// Если курсор находится в начале
+		if (to == 0) {
+			WCHAR buffer[ONECHAR_BUFF_SIZE] = L"";
+			SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
+			if (buffer[0] == '-') {		// И в edit control есть знак минус
+				return TRUE;			// возвращем TRUE, т.к. такой ввод некорректый
+			}
+		}
+	}
+
+	return FALSE;
 }
 
 BOOL createConstEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
@@ -266,30 +362,39 @@ BOOL createConstEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 		xPos, yPos, 200, 20,
 		parentWindow, NULL, NULL, NULL);
 	SendMessage(constEditCtrlsText, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
-	yPos += 20;
+
+	yPos += YSPACE_AFT_ECTXT;			// Переход к позиции для создания столбца свободных членов
 
 	constEditCtrls = calloc(size, sizeof(HWND));
-	if (constEditCtrls == NULL) return FALSE;
+	if (constEditCtrls == NULL) {
+		return FALSE;
+	}
 
 	for (int i = 0; i < size; ++i) {
 		constEditCtrls[i] = CreateWindowEx(
 			WS_EX_CLIENTEDGE,
 			L"edit", L"0",
 			WS_VISIBLE | WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL | WS_TABSTOP,
-			xPos, yPos, 80, 20,
+			xPos, yPos, SYSTEM_EC_WIDTH, EC_HEIGHT,
 			parentWindow, NULL, NULL, NULL);
-
-		SetWindowLongPtr(constEditCtrls[i], GWLP_WNDPROC, (LONG_PTR)(editCtrlProc));
-
-		SendMessage(constEditCtrls[i], EM_SETLIMITTEXT, EC_TEXTLEN, 0);
+		SetWindowSubclass(constEditCtrls[i], systemEditCtrlsProc, 0, 0);
+		SendMessage(constEditCtrls[i], EM_SETLIMITTEXT, MAX_NUM_LEN, 0);
 		SendMessage(constEditCtrls[i], WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
-		yPos += 25;
+
+		yPos += YSPACE_BTWN_EC;		// Переход для создания следующего edit control
 	}
 
 	return TRUE;
 }
 
 BOOL createSolutionEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
+	solveButton = CreateWindow(
+		L"button", L"Решить",
+		WS_VISIBLE | WS_CHILD,
+		START_X_POS, yPos + 10, 80, 30,
+		parentWindow, NULL, NULL, NULL);
+	SendMessage(solveButton, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
+
 	solutionText = CreateWindow(
 		L"static", L"Решение системы:",
 		WS_CHILD,
@@ -298,19 +403,22 @@ BOOL createSolutionEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 	SendMessage(solutionText, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
 
 	solutionEditCtrls = calloc(size, sizeof(HWND));
-	if (solutionEditCtrls == NULL) return FALSE;
+	if (solutionEditCtrls == NULL) {
+		return FALSE;
+	}
 
-	yPos += 20;
+	yPos += YSPACE_AFT_ECTXT;			// Переход к позиции для создания столбца решения системы
+
 	for (int i = 0; i < size; ++i) {
 		solutionEditCtrls[i] = CreateWindowEx(
 			WS_EX_CLIENTEDGE,
 			L"edit", L"",
 			WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL | ES_READONLY,
-			xPos, yPos, 110, 20,
+			xPos, yPos, SOLVE_EC_WIDTH, EC_HEIGHT,
 			parentWindow, NULL, NULL, NULL);
-		SendMessage(solutionEditCtrls[i], EM_SETLIMITTEXT, EC_TEXTLEN, 0);
 		SendMessage(solutionEditCtrls[i], WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
-		yPos += 25;
+
+		yPos += YSPACE_BTWN_EC;			// Переход для создания следующего edit control
 	}
 
 	return TRUE;
@@ -321,6 +429,13 @@ void setSolutionEditCtrlsVisible() {
 	for (int i = 0; i < variablesNum; ++i) {
 		ShowWindow(solutionEditCtrls[i], SW_SHOWNORMAL);
 	}
+}
+
+void freeEditCtlsMatrix(int toIndex) {
+	for (int i = toIndex; i >= 0; --i) {
+		free(coeffEditCtrls[i]);
+	}
+	free(coeffEditCtrls);
 }
 
 void deleteEditCtrls() {
@@ -342,16 +457,21 @@ void deleteEditCtrls() {
 	DestroyWindow(constEditCtrlsText);
 }
 
-void getSysFont() {
-	NONCLIENTMETRICS metrics;
-	metrics.cbSize = sizeof(NONCLIENTMETRICS);
-	SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(NONCLIENTMETRICS), &metrics, 0);
-	font = CreateFontIndirect(&metrics.lfMessageFont);
+
+void showErrMsgBox(LPCWSTR errMsg) {
+	int msgboxID = MessageBox(
+		mainWindow,
+		errMsg,
+		(LPCWSTR)L"LinSysSolver",
+		MB_ICONERROR | MB_OK | MB_APPLMODAL
+	);
 }
 
-void comctl32Check() {
-	INITCOMMONCONTROLSEX initControls;
-	initControls.dwSize = sizeof(INITCOMMONCONTROLSEX);
-	initControls.dwICC = ICC_ANIMATE_CLASS;
-	InitCommonControlsEx(&initControls);
+void showWarningMsgBox(LPCWSTR errMsg) {
+	int msgboxID = MessageBox(
+		mainWindow,
+		errMsg,
+		(LPCWSTR)L"LinSysSolver",
+		MB_ICONWARNING | MB_OK | MB_APPLMODAL
+	);
 }
