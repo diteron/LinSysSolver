@@ -11,7 +11,7 @@
 #define MWND_HEIGHT 640		// Высота главного окна
 #define MAX_NUM_LEN 17		// Максимальный размер числа для матрицы коэффициетнов и столбца свободных членов (включая '-' и '.')
 #define PREC_NUM_LEN 2		// Максимальный размер числа для ввода количества чисел после десятичной точки
-#define MAX_PREC 14			// Максимальное число знаков после запятой у полученного решения системы 
+#define MAX_PREC 15			// Максимальное число знаков после запятой у полученного решения системы 
 #define START_X_POS 10		// x координата первого элемента матрицы коэффициентов		
 #define START_Y_POS 70		// y координата первого элемента матрицы коэффициентов		
 #define UNSELECTED -1		// Начальная позиция variablesNumDropdown
@@ -26,7 +26,7 @@
 
 LRESULT CALLBACK mainWinProc(_In_ HWND hWnd, _In_ UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam);
 
-void comctl32Check();
+void comctl32Load();
 void getSysFont();
 
 void createVarsNumDropdown(HWND parentWindow);

@@ -11,7 +11,6 @@ int* permutVector;			// Вектор для хранения перестано�
 BOOL solveSystem(HWND **coeffEdtCtrls, HWND *constEdtCtrls, HWND *solutionEdtCtrls, int size, int precision) {
 	static int realPrecision;		// Получаемая точность решения 
 
-
 	int changesCount;				// Число элементов новой матрицы, которые отличны от элементов предыдущей 
 	if (!fillSystemMatrix(coeffEdtCtrls, constEdtCtrls, solutionEdtCtrls, size, &changesCount)) {
 		return FALSE;
@@ -43,20 +42,17 @@ BOOL solveSystem(HWND **coeffEdtCtrls, HWND *constEdtCtrls, HWND *solutionEdtCtr
 		showWarningMsgBox(L"Из-за числа обусловленности матрицы точность решения может быть снижена.");
 	}
 
-	solve(constVector, solutionVector, size);						// Решаем систему используя полученное LU разложение
-	if (improvePrec(coeffMatrix, size)) {							// Одна простая итерация для улучшения точности решения							
-		char chTxt[SLTN_NUM_MAXLEN] = "";
-		for (int i = 0; i < size; ++i) {
-			snprintf(chTxt, SLTN_NUM_MAXLEN, "%.*f", precision, solutionVector[i]);
-			size_t outsize;
-			WCHAR wchTxt[SLTN_NUM_MAXLEN] = L"";
-			mbstowcs_s(&outsize, wchTxt, SLTN_NUM_MAXLEN, chTxt, SLTN_NUM_MAXLEN - 1);	// char в w_char
-			SetWindowText(solutionEdtCtrls[i], wchTxt);
-		}
-		return TRUE;
+	solve(constVector, solutionVector, size);						// Решаем систему используя полученное LU разложение							
+	
+	char chTxt[SLTN_NUM_MAXLEN] = "";
+	for (int i = 0; i < size; ++i) {								// Заполняем edit controls решения системы
+		snprintf(chTxt, SLTN_NUM_MAXLEN, "%.*f", precision, solutionVector[i]);
+		size_t outsize;
+		WCHAR wchTxt[SLTN_NUM_MAXLEN] = L"";
+		mbstowcs_s(&outsize, wchTxt, SLTN_NUM_MAXLEN, chTxt, SLTN_NUM_MAXLEN - 1);	// char в WCHAR
+		SetWindowText(solutionEdtCtrls[i], wchTxt);
 	}
-
-	return FALSE;
+	return TRUE;
 }
 
 BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionEdtCtrls, int size, int* retChanges) {
@@ -203,7 +199,7 @@ BOOL LUdcmp(double *retMatrixCondNum, int size) {
 
 	// Вычисляем норму обратной матрицы и помещаем её значение в переменную invMatrNorm
 	double invMatrInfNorm = 0.0;							
-	if (getInvMatrixAbsNorm(&invMatrInfNorm, lu_matrix, size)) {		
+	if (getInvMatrixInfNorm(&invMatrInfNorm, lu_matrix, size)) {		
 		*retMatrixCondNum = infNorm * invMatrInfNorm;
 		result = TRUE;
 	}
@@ -243,31 +239,6 @@ void solve(double *b, double *x, int size) {
 	}
 }
 
-BOOL improvePrec(double** coeffMatrCpy, int size) {
-	double* r = lssalloc(size, sizeof(double));
-	if (r == NULL) {
-		return FALSE;
-	}
-
-	int i, j;
-
-	for (i = 0; i < size; ++i) {
-		double sdp = -constVector[i];
-		for (j = 0; j < size; ++j) {
-			sdp += coeffMatrCpy[i][j] * solutionVector[j];
-		}
-		r[i] = sdp;
-	}
-
-	solve(r, r, size);
-	for (i = 0; i < size; ++i) {
-		solutionVector[i] -= r[i];
-	}
-
-	free(r);
-	return TRUE;
-}
-
 BOOL matrixSolve(double **b, double **x, int size) {
 	int i, j;
 
@@ -290,7 +261,7 @@ BOOL matrixSolve(double **b, double **x, int size) {
 	return TRUE;
 }
 
-BOOL getInvMatrixAbsNorm(double* normReturn, double** matrix, int size) {
+BOOL getInvMatrixInfNorm(double* normReturn, double** matrix, int size) {
 	BOOL result = FALSE;
 	double** matrixCopy = createEmptyMatrix(size, sizeof(double));
 	if (matrixCopy == NULL) {
@@ -333,48 +304,22 @@ BOOL getInvMatrixAbsNorm(double* normReturn, double** matrix, int size) {
 	return result;
 }
 
-void deleteAllFilledArrays(int fromIndex) {
-	if (coeffMatrix != NULL) {
-		for (int i = fromIndex; i >= 0; --i) {
-			free(coeffMatrix[i]);
-		}
-		free(coeffMatrix);
-		free(constVector);
-		free(solutionVector);
-		coeffMatrix = NULL,
-		constVector = NULL, solutionVector = NULL;
-	}
-
-	if (lu_matrix != NULL) {
-		for (int i = fromIndex; i >= 0; --i) {
-			free(lu_matrix[i]);
-		}
-		free(lu_matrix);
-		lu_matrix = NULL;
-	}
-
-	if (permutVector != NULL) {
-		free(permutVector);
-		permutVector = NULL;
-	}
-}
-
-void* lssalloc(size_t num, size_t size) {
-	void* ptr = calloc(num, size);
+void* lssalloc(size_t count, size_t size) {
+	void* ptr = calloc(count, size);
 	if (ptr == NULL) {
 		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
 	}
 	return ptr;
 }
 
-void* createEmptyMatrix(size_t num, size_t size) {
-	void** matrix = calloc(num, sizeof(void*));
+void* createEmptyMatrix(size_t count, size_t size) {
+	void** matrix = calloc(count, sizeof(void*));
 	if (matrix == NULL) {
 		return NULL;
 	}
 
-	for (int i = 0; i < num; ++i) {
-		matrix[i] = calloc(num, size);
+	for (int i = 0; i < count; ++i) {
+		matrix[i] = calloc(count, size);
 
 		if (matrix[i] == NULL) {
 			for (i = i - 1; i >= 0; --i) {
@@ -393,5 +338,31 @@ void copySqrMatrixD(double **destMatr, double **srcMatr, int size) {
 		memcpy_s(
 			destMatr[i], size * sizeof(double),
 			srcMatr[i], size * sizeof(double));
+	}
+}
+
+void deleteAllFilledArrays(int toIndex) {
+	if (coeffMatrix != NULL) {
+		for (int i = toIndex; i >= 0; --i) {
+			free(coeffMatrix[i]);
+		}
+		free(coeffMatrix);
+		free(constVector);
+		free(solutionVector);
+		coeffMatrix = NULL,
+			constVector = NULL, solutionVector = NULL;
+	}
+
+	if (lu_matrix != NULL) {
+		for (int i = toIndex; i >= 0; --i) {
+			free(lu_matrix[i]);
+		}
+		free(lu_matrix);
+		lu_matrix = NULL;
+	}
+
+	if (permutVector != NULL) {
+		free(permutVector);
+		permutVector = NULL;
 	}
 }

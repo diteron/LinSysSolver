@@ -1,28 +1,25 @@
-п»ї#pragma once
+#pragma once
 
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
 #include "gui.h"
 
-#define SLTN_NUM_MAXLEN 120		// РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґР»РёРЅР° С‡РёСЃР»Р° РїРѕР»СѓС‡Р°РµРјРѕРіРѕ РїСЂРё СЂРµС€РµРЅРёРё РЎР›РђРЈ
-#define DBL_EPS_EXP 16			// РџРѕСЂСЏРґРѕРє С‚РѕС‡РЅРѕСЃС‚Рё double РІ СЌРєСЃРїРѕРЅРµРЅС†РёР°Р»СЊРЅРѕР№ Р·Р°РїРёСЃРё ( 2.2204460492503131e-16 )
+#define SLTN_NUM_MAXLEN 120		// Максимальная длина числа получаемого при решении СЛАУ
+#define DBL_EPS_EXP 16			// Порядок точности double в экспоненциальной записи ( 2.2204460492503131e-16 )
+
 
 BOOL solveSystem(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionEdtCtrls, int size, int precision);
 BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionEdtCtrls, int size, int* retChanges);
 BOOL allocMemForSystem(int size);
-void deleteAllFilledArrays(int fromIndex);
 
-// РўРµСЃС‚РѕРІС‹Рµ С„СѓРЅРєС†РёРё
 BOOL LUdcmp(double* retMatrixCondNum, int size);
-void copySqrMatrixD(double** destMatr, double** srcMatr, int size);
 void solve(double* b, double* x, int size);
-int numOfDigitsInIntPart(double number);
-BOOL improvePrec(double** coeffMatrCpy, int size);
-//////////////
-
 BOOL matrixSolve(double** b, double** x, int size);
-BOOL getInvMatrixAbsNorm(double* normReturn, double** matrix, int size);
+BOOL getInvMatrixInfNorm(double* normReturn, double** matrix, int size);
 
-void* lssalloc(size_t num, size_t size);
-void* createEmptyMatrix(size_t num, size_t size);
+void* lssalloc(size_t count, size_t size);
+void* createEmptyMatrix(size_t count, size_t size);
+void copySqrMatrixD(double** destMatr, double** srcMatr, int size);
+
+void deleteAllFilledArrays(int toIndex);

@@ -47,7 +47,7 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		NULL, NULL, hInstance, NULL);
 	ShowWindow(mainWindow, SW_SHOWNORMAL);
 
-	comctl32Check();	// Загрузка библиотеки Comctl32.dll
+	comctl32Load();		// Загрузка библиотеки Comctl32.dll
 	getSysFont();		// Получение системного шрифта
 
 	createVarsNumDropdown(mainWindow);
@@ -108,7 +108,7 @@ LRESULT CALLBACK mainWinProc(_In_ HWND hWnd, _In_ UINT uMsg, _In_ WPARAM wParam,
 	return DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 
-void comctl32Check() {
+void comctl32Load() {
 	INITCOMMONCONTROLSEX initControls;
 	initControls.dwSize = sizeof(INITCOMMONCONTROLSEX);
 	initControls.dwICC = ICC_ANIMATE_CLASS;
@@ -191,7 +191,7 @@ int getPrecision() {
 
 void createPrecUpDownCtrl(HWND parentWindow) {
 	HWND updwnEdtCtrlText = CreateWindow(
-		L"static", L"Число знаков после запятой (0-14):",
+		L"static", L"Число знаков после запятой (0-15):",
 		WS_VISIBLE | WS_CHILD,
 		START_X_POS + 300, 20, 200, 25,
 		parentWindow, NULL, NULL, NULL);
