@@ -77,7 +77,7 @@ BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionE
 
 		rowSum = 0.0;
 		for (int j = 0; j < size; ++j) {
-			GetWindowText(coeffEdtCtrls[i][j], textBuff, 17);
+			GetWindowText(coeffEdtCtrls[i][j], textBuff, MAX_NUM_LEN);
 			numFromString = _wtof(textBuff);
 			rowSum += fabs(numFromString);		// Подсчет суммы элементов строки для проверки матрицы на сингулярность
 			if (numFromString != coeffMatrix[i][j]) {
@@ -91,7 +91,7 @@ BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionE
 			return FALSE;
 		}
 
-		GetWindowText(constEdtCtrls[i], textBuff, 17);
+		GetWindowText(constEdtCtrls[i], textBuff, MAX_NUM_LEN);
 		numFromString = _wtof(textBuff);
 		if (numFromString != constVector[i]) {
 			constVector[i] = numFromString;
@@ -165,14 +165,14 @@ BOOL LUdcmp(double *retMatrixCondNum, int size) {
 	for (k = 0; k < size; ++k) {
 		big = 0.0;
 		imax = k;
-		for (i = k; i < size; ++i) {					// Выбор главного элемента матрицы "implicit pivoting"
+		for (i = k; i < size; ++i) {					// Выбор ведущего элемента матрицы "implicit pivoting"
 			temp = scalingVector[i] * fabs(lu_matrix[i][k]);
 			if (temp > big) {
 				big = temp;
 				imax = i;
 			}
 		}
-		if (k != imax) {								// Если главный элемент найдет в другой строке
+		if (k != imax) {								// Если ведущий элемент найден в другой строке
 			for (j = 0; j < size; ++j) {
 				temp = lu_matrix[imax][j];				// Переставляем строки
 				lu_matrix[imax][j] = lu_matrix[k][j];
@@ -182,7 +182,7 @@ BOOL LUdcmp(double *retMatrixCondNum, int size) {
 		}
 		permutVector[k] = imax;							// Сохраняем перестановку в соответствующий вектор
 
-		if (fabs(lu_matrix[k][k]) < DBL_EPSILON) {		// Если нет ненулевого главного элемента, то матрица сингулярна
+		if (fabs(lu_matrix[k][k]) < DBL_EPSILON) {		// Если нет ненулевого ведущего элемента, то матрица сингулярна
 			showWarningMsgBox((LPCWSTR)L"Сингулярная матрица системы");
 			free(scalingVector);
 			return result;
@@ -198,7 +198,7 @@ BOOL LUdcmp(double *retMatrixCondNum, int size) {
 	}
 
 	// Вычисляем норму обратной матрицы и помещаем её значение в переменную invMatrNorm
-	double invMatrInfNorm = 0.0;							
+	double invMatrInfNorm = 0.0;	
 	if (getInvMatrixInfNorm(&invMatrInfNorm, lu_matrix, size)) {		
 		*retMatrixCondNum = infNorm * invMatrInfNorm;
 		result = TRUE;
@@ -349,8 +349,7 @@ void deleteAllFilledArrays(int toIndex) {
 		free(coeffMatrix);
 		free(constVector);
 		free(solutionVector);
-		coeffMatrix = NULL,
-			constVector = NULL, solutionVector = NULL;
+		coeffMatrix = NULL, constVector = NULL, solutionVector = NULL;
 	}
 
 	if (lu_matrix != NULL) {

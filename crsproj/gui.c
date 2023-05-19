@@ -148,16 +148,16 @@ void createVarsNumDropdown(HWND parentWindow) {
 }
 
 BOOL failedDropDwnChange(HWND drpDwnHwnd, HWND parentHwnd) {
-	static currentDropdownElem = UNSELECTED;
+	static int currDropDwnElem = UNSELECTED;
 	
-	int newDropdownElemId = (int)SendMessage(drpDwnHwnd, CB_GETCURSEL, 0, 0);
-	if (currentDropdownElem != newDropdownElemId) {		// Если выбран другой элемент в дропдауне 
-		currentDropdownElem = newDropdownElemId;
+	int newDropDwnElemId = (int)SendMessage(drpDwnHwnd, CB_GETCURSEL, 0, 0);
+	if (currDropDwnElem != newDropDwnElemId) {			// Если выбран другой элемент в дропдауне 
+		currDropDwnElem = newDropDwnElemId;
 		if (coeffEditCtrls != NULL) {					// И были созданы edit controls для ввода СЛАУ,
 			deleteEditCtrls();							// то удаляем их
 			deleteAllFilledArrays(variablesNum - 1);	// Удаление заполненных массивов при решении системы
 		}
-		variablesNum = newDropdownElemId + 2;
+		variablesNum = newDropDwnElemId + 2;
 		if (!createSystemEditCtrls(parentHwnd, variablesNum, START_X_POS, START_Y_POS)) {
 			return TRUE;
 		}
@@ -175,7 +175,7 @@ BOOL failedSolve() {
 		}
 	}
 	else {
-		showWarningMsgBox((LPCWSTR)L"Число цифр после запятой\nдолжно быть в диапазоне от 0 до 14");
+		showWarningMsgBox((LPCWSTR)L"Число цифр после запятой\nдолжно быть в диапазоне от 0 до 15");
 	}
 
 	return TRUE;
@@ -221,6 +221,7 @@ void createPrecUpDownCtrl(HWND parentWindow) {
 BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 	coeffEditCtrls = calloc(size, sizeof(HWND*));
 	if (coeffEditCtrls == NULL) {
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
 		return FALSE;
 	}
 
@@ -237,6 +238,7 @@ BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 		coeffEditCtrls[i] = calloc(size, sizeof(HWND));
 		if (coeffEditCtrls[i] == NULL) {
 			freeEditCtlsMatrix(i - 1);
+			showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
 			return FALSE;
 		}
 
@@ -276,14 +278,14 @@ LRESULT CALLBACK systemEditCtrlsProc(
 	UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
 
 	if (uMsg == WM_CHAR) {
+		if (сharBeforeMinus(hWnd, wParam)) {
+			return 0;
+		}
+		
 		if (wParam == '.' && incorrectDotPos(hWnd)) {
 			return 0;
 		}
 		else if (wParam == '-' && incorrectMinusPos(hWnd)) {
-			return 0;
-		}
-
-		if (сharBeforeMinus(hWnd, wParam)) {		
 			return 0;
 		}
 
@@ -301,6 +303,22 @@ LRESULT CALLBACK systemEditCtrlsProc(
 	}
 
 	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
+}
+
+BOOL сharBeforeMinus(HWND hWnd, WPARAM wParam) {
+	DWORD from = 0, to = 0;
+	SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
+	if (from == 0) {					// Если курсор находится в начале
+		if (to == 0) {
+			WCHAR buffer[ONECHAR_BUFF_SIZE] = L"";
+			SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
+			if (buffer[0] == '-') {		// И в edit control есть знак минус
+				return TRUE;			// возвращем TRUE, т.к. такой ввод некорректый
+			}
+		}
+	}
+
+	return FALSE;
 }
 
 BOOL incorrectDotPos(HWND hWnd) {
@@ -323,36 +341,12 @@ BOOL incorrectDotPos(HWND hWnd) {
 BOOL incorrectMinusPos(HWND hWnd) {
 	DWORD from = 0, to = 0;
 	SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
-	if (from == 0) {					// Если текстовый курсор находится в начале, минус вводить можно
-		if (to == 0) {
-			WCHAR buffer[ONECHAR_BUFF_SIZE] = L"";
-			SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
-			if (buffer[0] == '-') {		// Минус может быть только один
-				return TRUE;
-			}
-		}
+	if (from == 0 || to == 0) {			// Если текстовый курсор находится в начале, минус вводить можно
+		return FALSE;
 	}
 	else {
 		return TRUE;
 	}
-
-	return FALSE;
-}
-
-BOOL сharBeforeMinus(HWND hWnd, WPARAM wParam) {
-	DWORD from = 0, to = 0;
-	SendMessage(hWnd, EM_GETSEL, (WPARAM)&from, (WPARAM)&to);
-	if (from == 0) {					// Если курсор находится в начале
-		if (to == 0) {
-			WCHAR buffer[ONECHAR_BUFF_SIZE] = L"";
-			SendMessage(hWnd, WM_GETTEXT, (WPARAM)2, (WPARAM)buffer);
-			if (buffer[0] == '-') {		// И в edit control есть знак минус
-				return TRUE;			// возвращем TRUE, т.к. такой ввод некорректый
-			}
-		}
-	}
-
-	return FALSE;
 }
 
 BOOL createConstEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
@@ -367,6 +361,7 @@ BOOL createConstEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 
 	constEditCtrls = calloc(size, sizeof(HWND));
 	if (constEditCtrls == NULL) {
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
 		return FALSE;
 	}
 
@@ -404,6 +399,7 @@ BOOL createSolutionEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 
 	solutionEditCtrls = calloc(size, sizeof(HWND));
 	if (solutionEditCtrls == NULL) {
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
 		return FALSE;
 	}
 
@@ -456,7 +452,6 @@ void deleteEditCtrls() {
 	DestroyWindow(coeffEditCtrlsText);
 	DestroyWindow(constEditCtrlsText);
 }
-
 
 void showErrMsgBox(LPCWSTR errMsg) {
 	int msgboxID = MessageBox(

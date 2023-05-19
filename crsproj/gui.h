@@ -25,7 +25,6 @@
 
 
 LRESULT CALLBACK mainWinProc(_In_ HWND hWnd, _In_ UINT uMsg, _In_ WPARAM wParam, _In_ LPARAM lParam);
-
 void comctl32Load();
 void getSysFont();
 
@@ -38,9 +37,9 @@ int getPrecision();
 
 BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos);
 LRESULT systemEditCtrlsProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+BOOL ñharBeforeMinus(HWND hWnd, WPARAM wParam);
 BOOL incorrectDotPos(HWND hWnd);
 BOOL incorrectMinusPos(HWND hWnd);
-BOOL ñharBeforeMinus(HWND hWnd, WPARAM wParam);
 
 BOOL createConstEditCtrls(HWND parentWindow, int size, int xPos, int yPos);
 BOOL createSolutionEditCtrls(HWND parentWindow, int size, int xPos, int yPos);
