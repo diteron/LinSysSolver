@@ -20,7 +20,7 @@ BOOL solveSystem(HWND **coeffEdtCtrls, HWND *constEdtCtrls, HWND *solutionEdtCtr
 		if (lu_matrix == NULL) {
 			lu_matrix = createEmptyMatrix(size, sizeof(double));
 			if (lu_matrix == NULL) {
-				showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+				showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 				return FALSE;
 			}
 		}
@@ -34,7 +34,8 @@ BOOL solveSystem(HWND **coeffEdtCtrls, HWND *constEdtCtrls, HWND *solutionEdtCtr
 
 		// Если 10^(-d) - порядок машинной точности, а число обусловленности матрицы
 		// приблизительно равто 10^u, то точность решения = d - u цифр после точки
-		realPrecision = DBL_EPS_EXP - (int)round(log10(matrCondNum));	
+		realPrecision = (int)round(DBL_EPS_EXP - log10(matrCondNum));
+		realPrecision = realPrecision > 0 ? realPrecision : 0;		// Если точность решения слишком мала, выводим только целую часть
 	}
 
 	if (realPrecision < precision) {								// Если требуемая точность больше полученной
@@ -57,7 +58,7 @@ BOOL solveSystem(HWND **coeffEdtCtrls, HWND *constEdtCtrls, HWND *solutionEdtCtr
 
 BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionEdtCtrls, int size, int* retChanges) {
 	if (!allocMemForSystem(size)) {
-		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 		return FALSE;
 	}
 	
@@ -79,7 +80,7 @@ BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionE
 		for (int j = 0; j < size; ++j) {
 			GetWindowText(coeffEdtCtrls[i][j], textBuff, MAX_NUM_LEN);
 			numFromString = _wtof(textBuff);
-			rowSum += fabs(numFromString);		// Подсчет суммы элементов строки для проверки матрицы на сингулярность
+			rowSum += fabs(numFromString);		// Подсчет суммы элементов строки для проверки матрицы на вырожденность
 			if (numFromString != coeffMatrix[i][j]) {
 				coeffMatrix[i][j] = numFromString;
 				++changesCount;
@@ -87,7 +88,7 @@ BOOL fillSystemMatrix(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionE
 		}
 		if (rowSum == 0.0) {
 			deleteAllFilledArrays(i);
-			showWarningMsgBox((LPCWSTR)L"Сингулярная матрица системы");
+			showWarningMsgBox((LPCWSTR)L"Вырожденная матрица системы.");
 			return FALSE;
 		}
 
@@ -182,8 +183,8 @@ BOOL LUdcmp(double *retMatrixCondNum, int size) {
 		}
 		permutVector[k] = imax;							// Сохраняем перестановку в соответствующий вектор
 
-		if (fabs(lu_matrix[k][k]) < DBL_EPSILON) {		// Если нет ненулевого ведущего элемента, то матрица сингулярна
-			showWarningMsgBox((LPCWSTR)L"Сингулярная матрица системы");
+		if (fabs(lu_matrix[k][k]) < DBL_EPSILON) {		// Если нет ненулевого ведущего элемента, то матрица вырождена
+			showWarningMsgBox((LPCWSTR)L"Вырожденная матрица системы.");
 			free(scalingVector);
 			return result;
 		}
@@ -242,22 +243,22 @@ void solve(double *b, double *x, int size) {
 BOOL matrixSolve(double **b, double **x, int size) {
 	int i, j;
 
-	double* xx = lssalloc(size, sizeof(double));
-	if (xx == NULL) {
+	double* currSolutionColumn = lssalloc(size, sizeof(double));
+	if (currSolutionColumn == NULL) {
 		return FALSE;
 	}
 
 	for (j = 0; j < size; ++j) {
 		for (i = 0; i < size; ++i) {	// Решаем систему с текущим вектором свободных членов
-			xx[i] = b[i][j];
+			currSolutionColumn[i] = b[i][j];
 		}
-		solve(xx, xx, size); 
+		solve(currSolutionColumn, currSolutionColumn, size); 
 		for (i = 0; i < size; ++i) {	// Помещаем полученный вектор с решенем в столбец матрицы 
-			x[i][j] = xx[i];
+			x[i][j] = currSolutionColumn[i];
 		}
 	}
 
-	free(xx);
+	free(currSolutionColumn);
 	return TRUE;
 }
 
@@ -267,8 +268,6 @@ BOOL getInvMatrixInfNorm(double* normReturn, double** matrix, int size) {
 	if (matrixCopy == NULL) {
 		return result;
 	}
-
-	copySqrMatrixD(matrixCopy, matrix, size);
 
 	int i, j;
 
@@ -307,12 +306,16 @@ BOOL getInvMatrixInfNorm(double* normReturn, double** matrix, int size) {
 void* lssalloc(size_t count, size_t size) {
 	void* ptr = calloc(count, size);
 	if (ptr == NULL) {
-		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 	}
 	return ptr;
 }
 
-void* createEmptyMatrix(size_t count, size_t size) {
+void* createEmptyMatrix(size_t count, size_t size) {	
+	int i = 5;
+	int b = 3;
+	int s = b++ + ++i;
+	
 	void** matrix = calloc(count, sizeof(void*));
 	if (matrix == NULL) {
 		return NULL;

@@ -67,7 +67,6 @@ int WINAPI WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _
 		}
 	}
 
-	//_CrtDumpMemoryLeaks();
 	return 0;
 }
 
@@ -175,7 +174,7 @@ BOOL failedSolve() {
 		}
 	}
 	else {
-		showWarningMsgBox((LPCWSTR)L"Число цифр после запятой\nдолжно быть в диапазоне от 0 до 15");
+		showWarningMsgBox((LPCWSTR)L"Число цифр после десятичной точки\nдолжно быть в диапазоне от 0 до 15.");
 	}
 
 	return TRUE;
@@ -191,9 +190,9 @@ int getPrecision() {
 
 void createPrecUpDownCtrl(HWND parentWindow) {
 	HWND updwnEdtCtrlText = CreateWindow(
-		L"static", L"Число знаков после запятой (0-15):",
+		L"static", L"Число знаков после десятичной точки (0-15):",
 		WS_VISIBLE | WS_CHILD,
-		START_X_POS + 300, 20, 200, 25,
+		START_X_POS + 300, 20, 260, 20,
 		parentWindow, NULL, NULL, NULL);
 	SendMessage(updwnEdtCtrlText, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
 
@@ -201,7 +200,7 @@ void createPrecUpDownCtrl(HWND parentWindow) {
 		WS_EX_CLIENTEDGE,
 		L"edit", L"3",
 		WS_VISIBLE | WS_CHILD | ES_RIGHT | ES_NUMBER,
-		START_X_POS + 500, 20, SYSTEM_EC_WIDTH, EC_HEIGHT,
+		START_X_POS + 560, 20, SYSTEM_EC_WIDTH, EC_HEIGHT,
 		parentWindow, NULL, NULL, NULL);
 	SendMessage(precUpDwnEdtCtrl, WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
 	SendMessage(precUpDwnEdtCtrl, EM_SETLIMITTEXT, PREC_NUM_LEN, 0);
@@ -221,7 +220,7 @@ void createPrecUpDownCtrl(HWND parentWindow) {
 BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 	coeffEditCtrls = calloc(size, sizeof(HWND*));
 	if (coeffEditCtrls == NULL) {
-		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 		return FALSE;
 	}
 
@@ -238,7 +237,7 @@ BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 		coeffEditCtrls[i] = calloc(size, sizeof(HWND));
 		if (coeffEditCtrls[i] == NULL) {
 			freeEditCtlsMatrix(i - 1);
-			showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+			showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 			return FALSE;
 		}
 
@@ -250,7 +249,8 @@ BOOL createSystemEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 				WS_VISIBLE | WS_CHILD | ES_RIGHT | ES_AUTOHSCROLL | WS_TABSTOP,
 				xPos, yPos, SYSTEM_EC_WIDTH, EC_HEIGHT,
 				parentWindow, NULL, NULL, NULL);
-			SetWindowSubclass(coeffEditCtrls[i][j], systemEditCtrlsProc, 0, 0);
+			SetWindowSubclass(coeffEditCtrls[i][j], systemEditCtrlsProc,
+				0, 0);
 			SendMessage(coeffEditCtrls[i][j], EM_SETLIMITTEXT, MAX_NUM_LEN, 0);
 			SendMessage(coeffEditCtrls[i][j], WM_SETFONT, (WPARAM)font, MAKELPARAM(TRUE, 0));
 			xPos += XSPACE_BTWN_EC;
@@ -277,29 +277,35 @@ LRESULT CALLBACK systemEditCtrlsProc(
 	HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 	UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
 
-	if (uMsg == WM_CHAR) {
-		if (сharBeforeMinus(hWnd, wParam)) {
-			return 0;
-		}
-		
-		if (wParam == '.' && incorrectDotPos(hWnd)) {
-			return 0;
-		}
-		else if (wParam == '-' && incorrectMinusPos(hWnd)) {
-			return 0;
-		}
+	switch (uMsg) {
+		case WM_CHAR:
+			if (сharBeforeMinus(hWnd, wParam)) {
+				return 0;
+			}
 
-		if (!((wParam >= '0' && wParam <= '9')		// Запрет ввода любых других символов (и нажатия клавиш), кроме указанных
-			|| wParam == '.'
-			|| wParam == '-'
-			|| wParam == VK_RETURN
-			|| wParam == VK_BACK)) {
+			if (wParam == '.' && incorrectDotPos(hWnd)) {
+				return 0;
+			}
 
+			if (wParam == '-' && incorrectMinusPos(hWnd)) {
+				return 0;
+			}
+
+			if (!((wParam >= '0' && wParam <= '9')		// Запрет ввода любых других символов (и нажатия клавиш), кроме указанных
+				|| wParam == '.'
+				|| wParam == '-'
+				|| wParam == VK_RETURN
+				|| wParam == VK_BACK)) {
+
+				return 0;
+			}
+			break;
+
+		case WM_CONTEXTMENU:							// Запрет открытия контекстного меню по клику ПКМ
 			return 0;
-		}
-	}
-	else if (uMsg == WM_CONTEXTMENU) {				// Запрет открытия контекстного меню по клику ПКМ
-		return 0;
+
+		default:
+			break;
 	}
 
 	return DefSubclassProc(hWnd, uMsg, wParam, lParam);
@@ -361,7 +367,7 @@ BOOL createConstEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 
 	constEditCtrls = calloc(size, sizeof(HWND));
 	if (constEditCtrls == NULL) {
-		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 		return FALSE;
 	}
 
@@ -399,7 +405,7 @@ BOOL createSolutionEditCtrls(HWND parentWindow, int size, int xPos, int yPos) {
 
 	solutionEditCtrls = calloc(size, sizeof(HWND));
 	if (solutionEditCtrls == NULL) {
-		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти");
+		showErrMsgBox((LPCWSTR)L"Ошибка выделения памяти.");
 		return FALSE;
 	}
 

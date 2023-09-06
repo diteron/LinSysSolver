@@ -1,12 +1,12 @@
-#pragma once
+п»ї#pragma once
 
 #include <stdio.h>
 #include <math.h>
 #include <float.h>
 #include "gui.h"
 
-#define SLTN_NUM_MAXLEN 120		// Максимальная длина числа получаемого при решении СЛАУ
-#define DBL_EPS_EXP 16			// Порядок точности double в экспоненциальной записи ( 2.2204460492503131e-16 )
+#define SLTN_NUM_MAXLEN 120					// РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґР»РёРЅР° С‡РёСЃР»Р° РїРѕР»СѓС‡Р°РµРјРѕРіРѕ РїСЂРё СЂРµС€РµРЅРёРё РЎР›РђРЈ
+#define DBL_EPS_EXP 15.653559774527022		// РџРѕСЂСЏРґРѕРє С‚РѕС‡РЅРѕСЃС‚Рё double ( 2.2204460492503131e-16 )
 
 
 BOOL solveSystem(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionEdtCtrls, int size, int precision);
