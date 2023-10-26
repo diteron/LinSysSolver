@@ -5,8 +5,8 @@
 #include <float.h>
 #include "gui.h"
 
-#define SLTN_NUM_MAXLEN 120					// Максимальная длина числа получаемого при решении СЛАУ
-#define DBL_EPS_EXP 15.653559774527022		// Порядок точности double ( 2.2204460492503131e-16 )
+#define SLTN_NUM_MAXLEN 120                   // Максимальная длина числа получаемого при решении СЛАУ
+#define DBL_EPS_EXP 15.653559774527022        // Порядок точности double ( 2.2204460492503131e-16 )
 
 
 BOOL solveSystem(HWND** coeffEdtCtrls, HWND* constEdtCtrls, HWND* solutionEdtCtrls, int size, int precision);
